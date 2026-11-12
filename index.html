@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagnóstico da Carteira</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: painel de entrada fixo à esquerda, diagnóstico rolando à direita; resumo antes do detalhe */
+  --bg:#f3f5f1; --surface:#ffffff; --ink:#15201a; --muted:#5b6a61; --line:#dde3dc; --accent:#1b6a47;
+  --rf:#2e5f93; --fii:#2d8a57; --br:#86a12f; --eua:#c08a1a;
+  --good:#2d8a57; --warn:#b97f10; --bad:#c03a2b; --gold:#b48a1e;
+  --good-bg:#e7f3ec; --warn-bg:#fbf2df; --bad-bg:#fbe9e6;
+  --display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1311; --surface:#151c18; --ink:#e6ece8; --muted:#93a399; --line:#253029; --accent:#4cc28a;
+    --rf:#5b93cf; --fii:#47b578; --br:#a9c449; --eua:#e0a83a;
+    --good:#4cc28a; --warn:#e2ad41; --bad:#ec6a5a; --gold:#d8b04a;
+    --good-bg:#16291f; --warn-bg:#2c2412; --bad-bg:#2f1714; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1311; --surface:#151c18; --ink:#e6ece8; --muted:#93a399; --line:#253029; --accent:#4cc28a;
+  --rf:#5b93cf; --fii:#47b578; --br:#a9c449; --eua:#e0a83a;
+  --good:#4cc28a; --warn:#e2ad41; --bad:#ec6a5a; --gold:#d8b04a;
+  --good-bg:#16291f; --warn-bg:#2c2412; --bad-bg:#2f1714; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+button,input,select,textarea{font:inherit;color:inherit}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+
+.wrap{max-width:1320px;margin:0 auto;padding:24px 20px 60px}
+header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:20px}
+.eyebrow{font:700 12px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 8px}
+h1{font:900 clamp(30px,4.4vw,48px)/.95 var(--display);font-stretch:72%;text-transform:uppercase;margin:0;text-wrap:balance}
+h1 em{font-style:normal;color:var(--accent)}
+.sub{color:var(--muted);margin:10px 0 0;max-width:62ch}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-theme="dark"] .btn.primary{color:#08130d}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.primary{color:#08130d}}
+.save{font-size:12px;color:var(--muted)}
+.save b{color:var(--good);font-weight:600}
+
+.banner{background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);border-radius:10px;padding:10px 14px;margin-bottom:18px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:14px}
+
+.grid{display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start}
+@media (max-width:980px){.grid{grid-template-columns:1fr}}
+aside.panel{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+@media (max-width:980px){aside.panel{position:static;max-height:none}}
+.sec-title{font:800 12px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin:4px 0 12px}
+.sec{padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+.sec:last-child{border-bottom:0;margin-bottom:0}
+
+.prof{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.prof button{text-align:left;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 10px;cursor:pointer}
+.prof button b{display:block;font-weight:600;font-size:14px}
+.prof button span{font-size:12px;color:var(--muted)}
+.prof button[aria-pressed="true"]{border-color:var(--accent);background:var(--good-bg);box-shadow:inset 0 0 0 1px var(--accent)}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font-size:13px;font-weight:600;margin-top:10px}
+.custom{margin-top:10px;display:grid;gap:6px}
+.custom label{display:grid;grid-template-columns:18px 1fr 70px;align-items:center;gap:8px;font-size:13px}
+.custom input[type=number]{width:70px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);text-align:right}
+.custom .sum{font-size:12px;color:var(--muted);text-align:right}
+
+.cls{margin-bottom:14px}
+.cls-h{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;margin-bottom:6px}
+.dot{width:9px;height:9px;border-radius:2px;flex:none}
+.cls-h .tot{margin-left:auto;font-size:12px;color:var(--muted)}
+.row{display:grid;grid-template-columns:1fr 104px 28px 24px;gap:6px;margin-bottom:6px;align-items:center}
+.row input{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:var(--bg)}
+.row input.tk{text-transform:uppercase;font-weight:600}
+.row input.v{text-align:right}
+.ic{width:28px;height:30px;border:1px solid transparent;background:none;border-radius:6px;cursor:pointer;color:var(--muted);font-size:15px;line-height:1}
+.ic:hover{border-color:var(--line);color:var(--ink)}
+.ic[aria-expanded="true"]{color:var(--accent);border-color:var(--accent)}
+.chip{display:inline-block;font:600 10.5px/1 var(--body);padding:3px 6px;border-radius:99px;letter-spacing:.02em}
+.chip.ok{background:var(--good-bg);color:var(--good)}
+.chip.mid{background:var(--warn-bg);color:var(--warn)}
+.chip.low{background:var(--bad-bg);color:var(--bad)}
+.chip.pause{background:var(--line);color:var(--muted)}
+.rowmeta{display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 6px 2px}
+.det{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:10px;margin:0 0 10px;display:grid;gap:8px;font-size:13px}
+.det .fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px}
+.det label input{width:100%;min-width:0}
+.det label{display:grid;gap:2px;color:var(--muted);font-size:12px}
+.det label input{padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font-size:13px}
+.det .ck{display:flex;gap:8px;align-items:center;color:var(--ink);font-size:13px}
+.det .hint{font-size:11.5px;color:var(--muted);margin:0}
+.det .pass{color:var(--good)} .det .fail{color:var(--bad)}
+.add{width:100%;border:1px dashed var(--line);background:none;border-radius:7px;padding:6px;color:var(--muted);cursor:pointer;font-size:13px}
+.add:hover{border-color:var(--accent);color:var(--accent)}
+.tokin{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:var(--bg);font:13px var(--mono)}
+.sec .hint{font-size:11.5px;color:var(--muted);margin:4px 0 0}
+.big-in{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);font:600 18px var(--mono)}
+textarea.obj{width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);font-size:13px;resize:vertical}
+.fieldlab{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+
+main{display:grid;gap:16px;min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+@media (max-width:1180px){.kpis{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:520px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi .n{font:800 28px/1 var(--display);font-stretch:80%}
+.kpi .l{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.3}
+.kpi .l .num{display:block;font-size:12px}
+.kpi.off .n{color:var(--good)} .kpi.off.w .n{color:var(--warn)} .kpi.off.b .n{color:var(--bad)}
+.kpi.ref .n{color:var(--good)} .kpi.man .n{color:var(--gold)} .kpi.red .n{color:var(--bad)} .kpi.tot .n{color:var(--rf)}
+.kpi.inc .n{color:var(--accent)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;min-width:0}
+.card h2{font:800 13px/1.1 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin:0 0 4px}
+.card .desc{color:var(--muted);font-size:13.5px;margin:0 0 12px;max-width:72ch}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+.chartbox svg{display:block;width:100%;height:auto}
+.chartbox svg text{font-family:var(--body)}
+.chartbox svg text.m{font-family:var(--mono)}
+.scrollx{overflow-x:auto;padding-bottom:6px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:5px}
+.legend i.h{background:repeating-linear-gradient(45deg,var(--muted) 0 2px,transparent 2px 5px);border:1px solid var(--muted)}
+.legend i.d{height:0;border-top:2px dashed var(--gold);width:14px;border-radius:0;vertical-align:3px}
+.empty{color:var(--muted);text-align:center;padding:28px 10px}
+.empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:4px}
+
+.todo{border-left:3px solid var(--good);padding:4px 0 4px 14px}
+.todo.r{border-color:var(--bad)}
+.todo h3{font:800 12px/1.2 var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--good);margin:0 0 8px}
+.todo.r h3{color:var(--bad)}
+.todo ul{list-style:none;margin:0;padding:0;display:grid;gap:5px;font-size:14px}
+.todo li b{font-weight:700}
+.todo li .why{color:var(--muted)}
+.todo .none{color:var(--muted);font-size:13px}
+
+.plan table{width:100%;border-collapse:collapse;font-size:14px}
+.plan th{font:600 11px/1 var(--body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+.plan td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.plan td.r,.plan th.r{text-align:right}
+.plan .amt{font:600 16px var(--mono)}
+.plan .bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;min-width:60px}
+.plan .bar span{display:block;height:100%}
+.classplan{display:grid;gap:0}
+.classplan .it{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);gap:12px}
+.classplan .it:last-child{border-bottom:0}
+.classplan .it small{display:block;color:var(--muted);font-size:12px}
+.classplan .it .amt{font:700 20px var(--mono);white-space:nowrap}
+.classplan .it .amt small{display:inline;font:400 11px var(--body)}
+.callout{background:var(--good-bg);border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:10px}
+.callout.w{background:var(--warn-bg)}
+
+.alerts{display:grid;gap:10px}
+.alert{border-left:3px solid var(--warn);background:var(--bg);border-radius:0 10px 10px 0;padding:10px 14px}
+.alert h4{margin:0 0 3px;font-size:15px;color:var(--warn)}
+.alert p{margin:0;font-size:13.5px;color:var(--muted)}
+.alert.bad{border-color:var(--bad)} .alert.bad h4{color:var(--bad)}
+.alert.good{border-color:var(--good)} .alert.good h4{color:var(--good)}
+.alert.info{border-color:var(--rf)} .alert.info h4{color:var(--rf)}
+
+.ai-out{font-size:14.5px;line-height:1.6;max-width:78ch}
+.ai-out h3{font:800 13px/1.2 var(--display);letter-spacing:.08em;text-transform:uppercase;margin:16px 0 6px;color:var(--accent)}
+.ai-out ul{padding-left:20px;margin:6px 0}
+.ai-out p{margin:6px 0}
+.ai-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.ai-row input{flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.muted{color:var(--muted)}
+.hist table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:10px}
+.hist td,.hist th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+.hist td:first-child,.hist th:first-child{text-align:left}
+.hist th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+footer.how{font-size:13px;color:var(--muted);max-width:90ch;margin-top:8px}
+footer.how b{color:var(--ink)}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:9px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+@media print{ aside.panel,.actions,.banner,#aiCard .ai-row,.toast,.ic{display:none!important} .grid{grid-template-columns:1fr} body{background:#fff} .card,.kpi{break-inside:avoid} }
+.copybox{width:100%;min-height:160px;font:12px var(--mono);margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow">Diagnóstico da carteira</p>
+      <h1>Comprar, vender <em>ou manter</em></h1>
+      <p class="sub">Digite seus ativos à esquerda. Os gráficos mostram na hora quanto cada posição pesa, onde ela deveria estar e para onde mandar o próximo aporte.</p>
+    </div>
+    <div class="actions">
+      <span class="save" id="saveState">Carregando…</span>
+      <button class="btn" id="btnQuotes" type="button" title="Busca as cotações na B3 e recalcula os valores pela quantidade">Atualizar cotações</button>
+      <button class="btn" id="btnSnap" type="button">Salvar retrato do mês</button>
+      <button class="btn" id="btnBackup" type="button" title="Baixa um arquivo com todos os seus dados">Baixar backup</button>
+      <label class="btn" for="restore" title="Carrega um arquivo de backup">Restaurar backup</label><input type="file" id="restore" accept=".json,application/json" hidden>
+      <button class="btn" id="btnPrint" type="button">Imprimir / PDF</button>
+      <button class="btn primary" id="btnCopy" type="button">Copiar diagnóstico</button>
+    </div>
+  </header>
+  <div id="banner"></div>
+  <div class="grid">
+    <aside class="panel" id="panel" aria-label="Seus dados"></aside>
+    <main id="out"></main>
+  </div>
+  <footer class="how"><b>Como ler isso.</b> O diagnóstico avalia o peso de cada posição dentro da sua própria carteira e, quando você preenche o checklist, alguns indicadores do ativo. Ele não prevê preço nem futuro. "Reduzir" quer dizer que a posição ficou grande demais frente ao seu plano, não que o ativo seja ruim; quase sempre basta parar de aportar nele. Ferramenta pessoal de estudo, não é recomendação de compra ou venda.</footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script id="engine">
+/* ===================== MOTOR (funções puras) ===================== */
+const CLASSES = [
+  {k:"rf",  nome:"Renda fixa",          curto:"Renda fixa", ph:"CDB"},
+  {k:"fii", nome:"Fundos imobiliários", curto:"FIIs",       ph:"HGLG11"},
+  {k:"br",  nome:"Ações brasileiras",   curto:"Ações BR",   ph:"ITSA4"},
+  {k:"eua", nome:"Ações americanas",    curto:"EUA",        ph:"IVVB11"}
+];
+const PERFIS = {
+  p15:{nome:"+15 anos",  rf:.20},
+  p8: {nome:"8 a 15 anos",rf:.30},
+  p3: {nome:"3 a 7 anos", rf:.45},
+  p0: {nome:"menos de 3", rf:.60}
+};
+const ETFS_EUA = ["IVVB11","SPXI11","NASD11","WRLD11","BIVB39","IVV","VOO","VTI","QQQ","SPY","ACWI","VT","URTH11","SPXR11"];
+
+/* Checklist do Bruno (ações) + referência geral para FIIs */
+const CHECK = {
+  br:[
+    {k:"pl",   l:"P/L",                 r:"5 a 20",  t:v=>v>=5&&v<=20},
+    {k:"evebit",l:"EV/EBIT",            r:"4 a 20",  t:v=>v>=4&&v<=20},
+    {k:"roe",  l:"ROE %",               r:"> 8",     t:v=>v>8},
+    {k:"roic", l:"ROIC %",              r:"> 8",     t:v=>v>8},
+    {k:"mebit",l:"Margem EBIT %",       r:"> 5",     t:v=>v>5},
+    {k:"lc",   l:"Liquidez corrente",   r:"> 1",     t:v=>v>1},
+    {k:"dlpl", l:"Dív. líq./patrim.",   r:"< 0,5",   t:v=>v<0.5},
+    {k:"cagr", l:"Cresc. receita 5a %", r:"> 5",     t:v=>v>5}
+  ],
+  fii:[
+    {k:"pvp",  l:"P/VP",                r:"0,8 a 1,1",t:v=>v>=0.8&&v<=1.1},
+    {k:"dyf",  l:"DY 12m %",            r:"> 8",      t:v=>v>8, fromDy:true},
+    {k:"liq",  l:"Liquidez diária (R$ mi)",r:"> 1",   t:v=>v>1},
+    {k:"vac",  l:"Vacância %",          r:"< 10",     t:v=>v<10},
+    {k:"cot",  l:"Cotistas (mil)",      r:"> 50",     t:v=>v>50}
+  ]
+};
+
+function num(v){ if(v===null||v===undefined||v==="") return NaN; if(typeof v==="number") return v;
+  let s=String(v).trim().replace(/[R$\s%]/g,""); if(!s) return NaN;
+  if(s.includes(",")) s=s.replace(/\./g,"").replace(",","."); else if(/^\d{1,3}(\.\d{3})+$/.test(s)) s=s.replace(/\./g,"");
+  const n=parseFloat(s); return isFinite(n)?n:NaN; }
+function val(a){ const n=num(a.valor); return isFinite(n)&&n>0?n:0; }
+
+function alvos(st){
+  const on = st.ativas||{rf:true,fii:true,br:true,eua:true};
+  const out={rf:0,fii:0,br:0,eua:0};
+  if(st.custom){
+    let s=0; for(const c of CLASSES){ const p=on[c.k]?Math.max(0,num(st.alvosCustom[c.k])||0):0; out[c.k]=p; s+=p; }
+    if(s>0) for(const c of CLASSES) out[c.k]/=s;
+    return out;
+  }
+  const rf = on.rf ? PERFIS[st.perfil].rf : 0;
+  const rvs = ["fii","br","eua"].filter(k=>on[k]);
+  if(!rvs.length){ out.rf = on.rf?1:0; return out; }
+  out.rf = rf; const each=(1-rf)/rvs.length; rvs.forEach(k=>out[k]=each);
+  return out;
+}
+
+function checklist(a){
+  const crit = CHECK[a.classe]; if(!crit) return null;
+  let filled=0, pass=0; const res=[];
+  for(const c of crit){
+    const raw = c.fromDy ? a.dy : (a.ind||{})[c.k];
+    const v=num(raw);
+    if(isFinite(v)){ filled++; const ok=c.t(v); if(ok) pass++; res.push({...c,v,ok}); }
+    else res.push({...c,v:null,ok:null});
+  }
+  return {filled,pass,total:crit.length,res, weak: filled>=4 && pass/filled<0.6};
+}
+
+function statusDe(ratio){
+  if(!isFinite(ratio)) return "reduzir";
+  if(ratio<0.8) return "reforcar";
+  if(ratio<=1.2) return "manter";
+  if(ratio<=1.5) return "acima";
+  return "reduzir";
+}
+
+/* distribui um aporte A entre ativos/classes. vals: {id:valor}. Devolve {id:valor}, com chave "__classe:<k>" quando a classe não tem ativo */
+function alocar(items, alvoCls, A){
+  /* 1º nível: classes abaixo do alvo; 2º nível: ativos abaixo do ideal dentro de cada classe */
+  const out = {}; if(A<=0) return out;
+  const T = items.reduce((s,i)=>s+i.v,0), T2 = T + A;
+  const cls = CLASSES.map(c=>{
+    const its = items.filter(i=>i.classe===c.k);
+    const v = its.reduce((s,i)=>s+i.v,0);
+    const elig = its.filter(i=>!i.pausado);
+    return {k:c.k, v, its, elig, alvo:alvoCls[c.k], def: elig.length&&alvoCls[c.k]>0 ? Math.max(0, alvoCls[c.k]*T2 - v) : 0};
+  }).filter(c=>c.elig.length && c.alvo>0);
+  if(!cls.length) return out;
+  const sum = cls.reduce((s,c)=>s+c.def,0);
+  const wA = cls.reduce((s,c)=>s+c.alvo,0)||1;
+  cls.forEach(c=>{ c.aloc = sum>=A ? A*c.def/sum : c.def + (A-sum)*c.alvo/wA; });
+  cls.forEach(c=>{
+    if(c.aloc<=0) return;
+    const share = (c.v + c.aloc) / c.its.length;   /* peso igual dentro da classe */
+    const defs = c.elig.map(i=>Math.max(0, share - i.v));
+    const s2 = defs.reduce((a,b)=>a+b,0);
+    c.elig.forEach((i,j)=>{ const x = s2>0 ? c.aloc*defs[j]/s2 : c.aloc/c.elig.length; if(x>0) out[i.id]=(out[i.id]||0)+x; });
+  });
+  return out;
+}
+
+function foraDoLugar(byCls, alvo, T){
+  if(T<=0) return 0; let f=0;
+  for(const c of CLASSES) f += Math.max(0, byCls[c.k] - alvo[c.k]*T);
+  return f;
+}
+
+function diagnostico(st){
+  const alvo = alvos(st);
+  const ativos = st.ativos.map(a=>({...a, v:val(a), ck:checklist(a)}));
+  const cheios = ativos.filter(a=>a.v>0);
+  const T = cheios.reduce((s,a)=>s+a.v,0);
+  const byCls={rf:0,fii:0,br:0,eua:0}, nCls={rf:0,fii:0,br:0,eua:0};
+  cheios.forEach(a=>{ byCls[a.classe]+=a.v; nCls[a.classe]++; });
+
+  const linhas = cheios.map(a=>{
+    const ideal = nCls[a.classe] ? alvo[a.classe]/nCls[a.classe] : 0;
+    const pct = T? a.v/T : 0;
+    const ratio = ideal>0 ? pct/ideal : Infinity;
+    return {...a, pct, ideal, ratio, status: statusDe(ratio), foraPlano: ideal===0};
+  });
+  const classes = CLASSES.map(c=>({...c, v:byCls[c.k], n:nCls[c.k], pct:T?byCls[c.k]/T:0, alvo:alvo[c.k], diff:(T?byCls[c.k]/T:0)-alvo[c.k]}));
+
+  const fora = foraDoLugar(byCls, alvo, T);
+  const cont = {reforcar:0,manter:0,acima:0,reduzir:0};
+  linhas.forEach(l=>cont[l.status]++);
+  const renda = cheios.reduce((s,a)=>{ const d=num(a.dy); return s + (isFinite(d)? a.v*d/100/12 : 0); },0);
+  const comDy = cheios.filter(a=>isFinite(num(a.dy))).length;
+
+  /* itens para alocação: ativos com valor + classes-alvo sem nenhum ativo */
+  const items = linhas.map(l=>({id:l.id, classe:l.classe, v:l.v, ideal:l.ideal, pausado:!!l.pausado}));
+  CLASSES.forEach(c=>{ if(alvo[c.k]>0 && nCls[c.k]===0) items.push({id:"__classe:"+c.k, classe:c.k, v:0, ideal:alvo[c.k], pausado:false, vazio:true}); });
+  const A = Math.max(0, num(st.aporte)||0);
+  const aloc = alocar(items, alvo, A);
+  /* arredonda para reais inteiros mantendo a soma */
+  const ids = Object.keys(aloc); let rounded={}, acc=0;
+  ids.forEach(id=>{ rounded[id]=Math.floor(aloc[id]); acc+=rounded[id]; });
+  let falta = Math.round(A) - acc;
+  ids.sort((a,b)=>(aloc[b]-Math.floor(aloc[b]))-(aloc[a]-Math.floor(aloc[a]))).forEach(id=>{ if(falta>0){ rounded[id]++; falta--; } });
+  const plano = Object.entries(rounded).filter(([,x])=>x>0).map(([id,x])=>{
+    const it = items.find(i=>i.id===id); const l = linhas.find(l=>l.id===id);
+    return {id, valor:x, classe:it.classe, ticker: l? l.ticker : null, vazio: !!it.vazio, l};
+  }).sort((a,b)=>b.valor-a.valor);
+  const porClasse = CLASSES.map(c=>{
+    const ps = plano.filter(p=>p.classe===c.k);
+    return {...c, valor: ps.reduce((s,p)=>s+p.valor,0), comece: ps.filter(p=>!p.vazio).map(p=>p.ticker), vazio: ps.some(p=>p.vazio)};
+  }).filter(c=>c.valor>0);
+
+  /* simulação mês a mês */
+  let meses=null; const curva=[{m:0, f: T? fora/T : 0, T}];
+  if(A>0 && T>0){
+    const sim = items.map(i=>({...i}));
+    for(let m=1;m<=360;m++){
+      // recalcula ideais com os ativos atuais (classes vazias continuam como 1 bloco)
+      const a2 = alocar(sim, alvo, A);
+      sim.forEach(i=>{ i.v += a2[i.id]||0; });
+      const bc={rf:0,fii:0,br:0,eua:0}; sim.forEach(i=>bc[i.classe]+=i.v);
+      const TT = sim.reduce((s,i)=>s+i.v,0);
+      const f = foraDoLugar(bc, alvo, TT)/TT;
+      if(m<=60) curva.push({m, f, T:TT});
+      if(f<=0.05 && meses===null){ meses=m; if(m>=12) break; }
+      if(meses!==null && m>=Math.max(12, meses)) break;
+    }
+  } else if (T>0 && fora/T<=0.05) meses=0;
+
+  /* listas do "o que fazer agora" */
+  const reforcar = linhas.filter(l=>l.status==="reforcar").sort((a,b)=>a.ratio-b.ratio);
+  const reduzir  = linhas.filter(l=>l.status==="reduzir"||l.status==="acima").sort((a,b)=>b.ratio-a.ratio);
+
+  /* alertas */
+  const alertas=[];
+  if(T>0){
+    const maior = linhas.slice().sort((a,b)=>b.pct-a.pct)[0];
+    if(maior && maior.pct>0.20) alertas.push({tipo:"bad", t:`Sua maior posição é ${pc(maior.pct)} da carteira (${maior.ticker||"sem nome"})`,
+      d:"Um ativo sozinho passa a decidir o seu resultado. A referência é no máximo 5% a 10% por ativo. Não precisa vender tudo de uma vez: pare de aportar nele e mande os próximos aportes para o resto."});
+    else if(maior && maior.pct>0.15) alertas.push({tipo:"warn", t:`Maior posição em ${pc(maior.pct)} (${maior.ticker||"sem nome"})`,
+      d:"Acima do confortável, mas dá para corrigir só com aporte. Deixe essa posição parada e reforce as outras."});
+    const eua = linhas.filter(l=>l.classe==="eua");
+    if(eua.length===1 && ETFS_EUA.includes(String(eua[0].ticker||"").toUpperCase()))
+      alertas.push({tipo:"good", t:"Um único ETF já cobre a fatia internacional",
+        d:`Uma cota de ${eua[0].ticker.toUpperCase()} já carrega centenas de empresas. Aqui não faz falta ter vários ativos: a diversificação vem embutida.`});
+    ["fii","br"].forEach(k=>{ const c=classes.find(x=>x.k===k);
+      if(c.n>0 && c.n<=3 && c.pct>=0.15) alertas.push({tipo:"warn", t:`Só ${c.n} ${c.n===1?"ativo":"ativos"} em ${c.curto}`,
+        d:`A classe pesa ${pc(c.pct)} apoiada em poucos nomes. A referência é chegar a 10–15 por classe, aos poucos, com os próximos aportes.`}); });
+    classes.forEach(c=>{ if(c.alvo>0 && c.n===0) alertas.push({tipo:"info", t:`Você ainda não tem ${c.nome.toLowerCase()}`,
+      d:`Seu plano prevê ${pc(c.alvo)} nessa classe. Escolha um ativo para começar, ou desmarque a classe em "Ajustar alvos" se não quiser investir nela.`}); });
+    linhas.forEach(l=>{ if(l.foraPlano) alertas.push({tipo:"warn", t:`${l.ticker||"Ativo"} está numa classe fora do seu plano`, d:"O alvo dessa classe é 0%. Pare de aportar ou reative a classe em \"Ajustar alvos\"."}); });
+    plano.forEach(p=>{ if(p.l && p.l.ck && p.l.ck.weak) alertas.push({tipo:"warn", t:`${p.ticker} recebe aporte, mas passou em ${p.l.ck.pass}/${p.l.ck.filled} critérios`,
+      d:"O peso pede reforço, a qualidade pede cuidado. Revise antes de comprar ou pause os aportes nele (botão ⋯ do ativo)."}); });
+    const pausados = linhas.filter(l=>l.pausado);
+    if(pausados.length) alertas.push({tipo:"info", t:`Aportes pausados em ${pausados.map(p=>p.ticker).join(", ")}`, d:"Esses ativos ficam de fora do plano de aporte até você reativar."});
+    if(A>0 && T>0 && A/T<0.01) alertas.push({tipo:"info", t:"Aporte pequeno perto do patrimônio", d:`R$ ${br(A)} por mês é ${pc(A/T)} da carteira. O reequilíbrio só por aporte vai ser lento; se alguma posição estiver muito acima, vale considerar vender uma parte.`});
+  }
+  return {alvo, T, linhas, classes, fora, foraPct: T? fora/T : 0, cont, renda, comDy, plano, porClasse, meses, curva, reforcar, reduzir, alertas, A};
+}
+function pc(x,d=1){ return (x*100).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d})+"%"; }
+function br(x,d=0){ return (x||0).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d}); }
+</script>
+
+<script>
+/* ===================== ESTADO ===================== */
+let uid=0; const nid=()=>"a"+Date.now().toString(36)+(uid++);
+function exemplo(){
+  return {
+    v:1, exemplo:true, perfil:"p15", custom:false,
+    ativas:{rf:true,fii:true,br:true,eua:true},
+    alvosCustom:{rf:20,fii:27,br:27,eua:26},
+    aporte:"300",
+    objetivo:"Renda passiva e crescimento de patrimônio no longo prazo. Aporto cerca de R$ 300 por mês (varia).",
+    ativos:[
+      {id:nid(),classe:"rf", ticker:"CDB 120% CDI",valor:"1.500",dy:"",ind:{}},
+      {id:nid(),classe:"fii",ticker:"MXRF11",valor:"400",dy:"",ind:{}},
+      {id:nid(),classe:"fii",ticker:"VGIR11",valor:"300",dy:"",ind:{}},
+      {id:nid(),classe:"br", ticker:"ITSA3",valor:"500",dy:"8,28",ind:{pl:"8,24",roe:"19,3"}},
+      {id:nid(),classe:"br", ticker:"TAEE4",valor:"350",dy:"",ind:{}},
+      {id:nid(),classe:"br", ticker:"BBSE3",valor:"300",dy:"",ind:{}},
+      {id:nid(),classe:"eua",ticker:"",valor:"",dy:"",ind:{}}
+    ],
+    historico:[]
+  };
+}
+let S = exemplo();
+const abertos = new Set();
+let D = null;
+
+/* ===================== PERSISTÊNCIA (neste navegador) ===================== */
+const KEY="diag-carteira"; let timer=null;
+function saveLabel(t){ document.getElementById("saveState").innerHTML=t; }
+function lsGet(){ try{ return JSON.parse(localStorage.getItem(KEY)||"null"); }catch(e){ return null; } }
+function lsSet(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); saveLabel("<b>●</b> Salvo neste aparelho"); }catch(e){ saveLabel("Não consegui salvar: baixe um backup"); } }
+function agendar(){ clearTimeout(timer); saveLabel("Salvando…"); timer=setTimeout(lsSet, 500); }
+function iniciarDb(){
+  const local=lsGet();
+  if(local && local.ativos){ S=Object.assign(exemplo(), local); renderAll(); }
+  saveLabel(local? "<b>●</b> Salvo neste aparelho" : "Ainda não salvo");
+}
+function baixarBackup(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=`carteira-backup-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
+  S.ultimoBackup=new Date().toISOString(); agendar(); toast("Backup baixado");
+}
+function restaurar(file){
+  const r=new FileReader();
+  r.onload=()=>{ try{ const st=JSON.parse(r.result); if(!st.ativos) throw 0; S=Object.assign(exemplo(), st); renderAll(); lsSet(); toast("Backup restaurado"); }catch(e){ toast("Esse arquivo não é um backup válido"); } };
+  r.readAsText(file);
+}
+
+/* ===================== COTAÇÕES (brapi.dev) ===================== */
+const ehTicker = t=>/^[A-Z]{4}\d{1,2}F?$/.test(String(t||"").toUpperCase().trim());
+async function buscarCotacoes(){
+  const alvo = S.ativos.filter(a=>ehTicker(a.ticker));
+  if(!alvo.length){ toast("Nenhum ticker da B3 para atualizar"); return; }
+  const b=document.getElementById("btnQuotes"); b.disabled=true; b.textContent="Buscando…";
+  const syms=[...new Set(alvo.map(a=>a.ticker.toUpperCase().trim().replace(/F$/,"")))];
+  const tok=(S.brapiToken||"").trim(); const precos={}; const falhas=[];
+  const ler = j=>{ (j&&j.results||[]).forEach(r=>{ const d=r.data||r; const s=(r.symbol||d.symbol||"").toUpperCase(); const p=d.regularMarketPrice; if(s&&isFinite(p)) precos[s]=p; }); };
+  for(let i=0;i<syms.length;i+=10){
+    const grupo=syms.slice(i,i+10);
+    try{
+      let ok=false;
+      try{
+        const r=await fetch(`https://brapi.dev/api/v2/stocks/quote?symbols=${grupo.join(",")}`,{headers: tok?{Authorization:"Bearer "+tok}:{}});
+        if(r.ok){ ler(await r.json()); ok=true; }
+      }catch(e){}
+      if(!ok || grupo.some(s=>!(s in precos))){
+        const falt=grupo.filter(s=>!(s in precos));
+        const r=await fetch(`https://brapi.dev/api/quote/${falt.join(",")}${tok?"?token="+encodeURIComponent(tok):""}`);
+        if(r.ok) ler(await r.json());
+      }
+    }catch(e){}
+  }
+  let atual=0;
+  alvo.forEach(a=>{
+    const s=a.ticker.toUpperCase().trim().replace(/F$/,""); const p=precos[s];
+    if(p===undefined){ falhas.push(s); return; }
+    a.preco=p; a.precoEm=new Date().toISOString();
+    const q=num(a.qtd); if(isFinite(q)&&q>0){ a.valor=br(q*p,2); atual++; S.exemplo=false; }
+  });
+  S.cotacoesEm=new Date().toISOString();
+  renderAll(); agendar();
+  b.disabled=false; b.textContent="Atualizar cotações";
+  if(!Object.keys(precos).length) toast(tok?"Não consegui buscar as cotações. Confira o token ou a internet.":"Sem token só alguns tickers respondem. Cole seu token grátis da brapi.dev em Conexões.");
+  else toast(`${Object.keys(precos).length} cotações atualizadas${atual?`, ${atual} valores recalculados`:""}${falhas.length?` · sem cotação: ${falhas.join(", ")}`:""}`);
+}
+
+/* ===================== UTILIDADES ===================== */
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const COR = k=>`var(--${k})`;
+function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("on"); setTimeout(()=>el.classList.remove("on"),2200); }
+const STATUS = {reforcar:{t:"REFORÇAR",c:"var(--good)"},manter:{t:"MANTER",c:"var(--muted)"},acima:{t:"ACIMA",c:"var(--warn)"},reduzir:{t:"REDUZIR",c:"var(--bad)"}};
+
+/* ===================== PAINEL (entradas) ===================== */
+function renderPanel(){
+  const P = $("#panel");
+  const alvo = alvos(S);
+  let h = `<div class="sec"><p class="sec-title">1 · Seu momento</p><div class="prof">`;
+  for(const [k,p] of Object.entries(PERFIS)) h += `<button type="button" data-perfil="${k}" aria-pressed="${!S.custom&&S.perfil===k}"><b>${p.nome}</b><span>${Math.round(p.rf*100)}% RF / ${Math.round(100-p.rf*100)}% RV</span></button>`;
+  h += `</div><button class="linkbtn" type="button" id="tgCustom">${S.custom?"Voltar aos alvos do perfil":"Ajustar alvos e classes"}</button>`;
+  h += `<div class="custom">`;
+  for(const c of CLASSES){
+    h += `<label><input type="checkbox" data-ativa="${c.k}" ${S.ativas[c.k]?"checked":""} aria-label="Incluir ${c.nome}"><span><i class="dot" style="display:inline-block;background:${COR(c.k)};margin-right:6px"></i>${c.nome}</span>`;
+    h += S.custom ? `<input type="number" min="0" max="100" step="1" id="alvo-${c.k}" data-alvo="${c.k}" value="${esc(S.alvosCustom[c.k])}" ${S.ativas[c.k]?"":"disabled"}>` : `<span class="num" style="text-align:right">${pc(alvo[c.k],0)}</span>`;
+    h += `</label>`;
+  }
+  if(S.custom){ const s=CLASSES.reduce((a,c)=>a+(S.ativas[c.k]?(num(S.alvosCustom[c.k])||0):0),0); h+=`<div class="sum">Soma: ${br(s)}%${Math.round(s)!==100?" · vou proporcionalizar para 100%":""}</div>`; }
+  h += `</div></div>`;
+
+  h += `<div class="sec"><p class="sec-title">2 · Seus ativos</p>`;
+  for(const c of CLASSES){
+    const lista = S.ativos.filter(a=>a.classe===c.k);
+    const tot = lista.reduce((s,a)=>s+val(a),0);
+    h += `<div class="cls"><div class="cls-h"><span class="dot" style="background:${COR(c.k)}"></span>${c.nome}<span class="tot num">${tot?"R$ "+br(tot):""}</span></div>`;
+    for(const a of lista){
+      const ck = checklist(a);
+      h += `<div class="row" data-id="${a.id}">
+        <input class="tk" id="tk-${a.id}" data-f="ticker" value="${esc(a.ticker)}" placeholder="${c.ph}" aria-label="Ativo">
+        <input class="v num" id="v-${a.id}" data-f="valor" value="${esc(a.valor)}" placeholder="R$ 0" inputmode="decimal" aria-label="Valor em reais de ${esc(a.ticker||c.ph)}">
+        <button class="ic" type="button" data-det="${a.id}" aria-expanded="${abertos.has(a.id)}" title="Detalhes, dividendos e checklist">⋯</button>
+        <button class="ic" type="button" data-del="${a.id}" title="Remover">×</button></div>`;
+      const meta=[];
+      if(ck && ck.filled) meta.push(`<span class="chip ${ck.pass/ck.filled>=0.75?"ok":ck.pass/ck.filled>=0.6?"mid":"low"}">Checklist ${ck.pass}/${ck.filled}</span>`);
+      if(isFinite(num(a.dy))) meta.push(`<span class="chip ok">${c.k==="rf"?"Taxa":"DY"} ${esc(a.dy)}%</span>`);
+      if(a.preco) meta.push(`<span class="chip pause" title="Cotação de ${new Date(a.precoEm).toLocaleString("pt-BR")}">R$ ${br(a.preco,2)}${isFinite(num(a.qtd))&&num(a.qtd)>0?" × "+esc(a.qtd):""}</span>`);
+      if(a.pausado) meta.push(`<span class="chip pause">Aporte pausado</span>`);
+      if(meta.length) h += `<div class="rowmeta">${meta.join("")}</div>`;
+      if(abertos.has(a.id)) h += detalhe(a,c,ck);
+    }
+    h += `<button class="add" type="button" data-add="${c.k}">+ ativo</button></div>`;
+  }
+  h += `</div>`;
+  h += `<div class="sec"><p class="sec-title">3 · Aporte mensal</p><input class="big-in" id="aporte" value="${esc(S.aporte)}" inputmode="decimal" placeholder="R$ 0" aria-label="Aporte mensal em reais">
+    <label class="fieldlab" for="objetivo">Seus objetivos (usados pela análise com IA)</label>
+    <textarea class="obj" id="objetivo">${esc(S.objetivo)}</textarea></div>`;
+  h += `<div class="sec"><p class="sec-title">4 · Conexões (opcional)</p>
+    <label class="fieldlab" for="brapiToken">Token da brapi.dev, para cotações automáticas</label>
+    <input class="tokin" id="brapiToken" type="password" autocomplete="off" value="${esc(S.brapiToken||"")}" placeholder="cole aqui o token grátis">
+    <p class="hint">Crie de graça em brapi.dev. Com o token e a quantidade de cada ativo (botão ⋯), "Atualizar cotações" recalcula os valores sozinho.</p>
+    <label class="fieldlab" for="apiKey">Chave da API da Anthropic, para a análise com IA</label>
+    <input class="tokin" id="apiKey" type="password" autocomplete="off" value="${esc(S.apiKey||"")}" placeholder="sk-ant-…">
+    <p class="hint">Sem chave, use "Copiar pedido de análise" e cole no Claude ou em outro chat. As duas chaves ficam só neste aparelho e vão no backup.</p></div>`;
+  P.innerHTML = h;
+}
+function detalhe(a,c,ck){
+  let h = `<div class="det">`;
+  h += `<div class="fields"><label>${c.k==="rf"?"Taxa ao ano (%)":"Dividend yield 12m (%)"}<input id="dy-${a.id}" data-f="dy" data-id2="${a.id}" value="${esc(a.dy)}" inputmode="decimal" placeholder="ex.: ${c.k==="rf"?"13,5":"9,5"}"></label>`;
+  h += `<label>Quantidade (opcional)<input id="q-${a.id}" data-f="qtd" data-id2="${a.id}" value="${esc(a.qtd||"")}" inputmode="decimal" placeholder="cotas"></label></div>`;
+  if(ck){
+    h += `<p class="hint">${c.k==="br"?"Checklist do Bruno: preencha o que tiver (Investidor10, Status Invest…)":"Referência geral para FIIs: ajuste ao seu critério"}</p><div class="fields">`;
+    for(const r of ck.res){ if(r.fromDy) continue;
+      const cls = r.ok===null?"":(r.ok?"pass":"fail");
+      h += `<label>${r.l} <span class="${cls}">(${r.r})${r.ok===null?"":r.ok?" ✓":" ✗"}</span><input id="ind-${a.id}-${r.k}" data-ind="${r.k}" data-id2="${a.id}" value="${esc((a.ind||{})[r.k]||"")}" inputmode="decimal"></label>`;
+    }
+    h += `</div>`;
+  }
+  h += `<label class="ck"><input type="checkbox" data-pausa="${a.id}" ${a.pausado?"checked":""}> Pausar aportes neste ativo</label></div>`;
+  return h;
+}
+
+/* ===================== GRÁFICOS ===================== */
+function nice(max){ const steps=[0.02,0.05,0.1,0.2,0.25]; let st=steps.find(s=>max/s<=5)||0.25; return {top:Math.ceil(max/st-1e-9)*st, st}; }
+function chartClasses(d){
+  const W=640,H=280,pl=40,pb=58,pt=26,pr=10, ih=H-pt-pb;
+  const max = Math.max(0.2, ...d.classes.map(c=>Math.max(c.pct,c.alvo)));
+  const {top,st} = nice(max);
+  const y = v=>pt+ih-(v/top)*ih;
+  const gw=(W-pl-pr)/4, bw=Math.min(46,gw*0.3);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Peso de cada classe hoje e o alvo"><defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--surface)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--gold)" stroke-width="2.2" opacity=".55"/></pattern></defs>`;
+  for(let t=0;t<=top+1e-9;t+=st){ s+=`<line x1="${pl}" x2="${W-pr}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${pl-6}" y="${y(t)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${Math.round(t*100)}%</text>`; }
+  d.classes.forEach((c,i)=>{
+    const cx=pl+gw*i+gw/2, x1=cx-bw-3, x2=cx+3;
+    s+=`<rect x="${x1}" y="${y(c.pct)}" width="${bw}" height="${pt+ih-y(c.pct)}" rx="3" fill="${COR(c.k)}"/>`;
+    s+=`<text x="${x1+bw/2}" y="${y(c.pct)-6}" text-anchor="middle" font-size="12" font-weight="700" fill="${COR(c.k)}" class="m">${Math.round(c.pct*100)}%</text>`;
+    s+=`<rect x="${x2}" y="${y(c.alvo)}" width="${bw}" height="${pt+ih-y(c.alvo)}" rx="3" fill="url(#hatch)" stroke="var(--gold)" stroke-width="1"/>`;
+    s+=`<text x="${x2+bw/2}" y="${y(c.alvo)-6}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--gold)" class="m">${Math.round(c.alvo*100)}%</text>`;
+    const df=Math.round(c.diff*100), col = Math.abs(df)<=3?"var(--muted)":(df>0?"var(--bad)":"var(--good)");
+    s+=`<text x="${cx}" y="${H-pb+20}" text-anchor="middle" font-size="13" fill="var(--ink)">${c.curto}</text>`;
+    s+=`<text x="${cx}" y="${H-pb+38}" text-anchor="middle" font-size="12" font-weight="700" fill="${col}" class="m">${df>0?"+":""}${df}%</text>`;
+  });
+  return s+`</svg>`;
+}
+function chartAtivos(d){
+  const L = CLASSES.flatMap(c=>d.linhas.filter(l=>l.classe===c.k));
+  const bw=34, gap=30, pl=38, pt=28, pb=58, H=290, ih=H-pt-pb;
+  const W = Math.max(600, pl + L.length*(bw+gap) + 20);
+  const max = Math.max(0.1, ...L.map(l=>Math.max(l.pct,l.ideal)));
+  const {top,st} = nice(max);
+  const y=v=>pt+ih-(v/top)*ih;
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" style="min-width:${W}px" role="img" aria-label="Peso de cada ativo e o nível ideal">`;
+  for(let t=0;t<=top+1e-9;t+=st){ s+=`<line x1="${pl}" x2="${W-10}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${pl-6}" y="${y(t)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${Math.round(t*100)}%</text>`; }
+  let prev=null;
+  L.forEach((l,i)=>{
+    const x = pl + 14 + i*(bw+gap);
+    if(prev && prev!==l.classe) s+=`<line x1="${x-gap/2-2}" x2="${x-gap/2-2}" y1="${pt-10}" y2="${pt+ih}" stroke="var(--line)" stroke-width="1.5"/>`;
+    prev=l.classe;
+    s+=`<rect x="${x}" y="${y(l.pct)}" width="${bw}" height="${Math.max(1,pt+ih-y(l.pct))}" rx="3" fill="${COR(l.classe)}" opacity="${l.pausado?.45:1}"/>`;
+    s+=`<text x="${x+bw/2}" y="${y(l.pct)-6}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)" class="m">${pc(l.pct)}</text>`;
+    s+=`<line x1="${x-8}" x2="${x+bw+8}" y1="${y(l.ideal)}" y2="${y(l.ideal)}" stroke="var(--gold)" stroke-width="2" stroke-dasharray="4 3"/>`;
+    const tk = esc((l.ticker||"?").toUpperCase()); const tks = tk.length>8? tk.slice(0,8)+"…" : tk;
+    s+=`<text x="${x+bw/2}" y="${H-pb+18}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${COR(l.classe)}">${tks}</text>`;
+    const st=STATUS[l.status];
+    s+=`<rect x="${x+bw/2-31}" y="${H-pb+27}" width="62" height="18" rx="4" fill="${st.c}" opacity=".14"/><text x="${x+bw/2}" y="${H-pb+40}" text-anchor="middle" font-size="10" font-weight="700" fill="${st.c}" letter-spacing=".04em">${st.t}</text>`;
+  });
+  return s+`</svg>`;
+}
+function chartCurva(d){
+  const pts=d.curva; if(pts.length<2) return "";
+  const W=640,H=220,pl=40,pr=14,pt=16,pb=34, iw=W-pl-pr, ih=H-pt-pb;
+  const maxM = pts[pts.length-1].m, maxF=Math.max(0.1,...pts.map(p=>p.f));
+  const {top,st} = nice(maxF);
+  const x=m=>pl+m/maxM*iw, y=f=>pt+ih-f/top*ih;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Quanto da carteira fica fora do lugar mês a mês">`;
+  for(let t=0;t<=top+1e-9;t+=st) s+=`<line x1="${pl}" x2="${W-pr}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${pl-6}" y="${y(t)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${Math.round(t*100)}%</text>`;
+  s+=`<line x1="${pl}" x2="${W-pr}" y1="${y(.05)}" y2="${y(.05)}" stroke="var(--good)" stroke-dasharray="5 4"/><text x="${W-pr}" y="${y(.05)-5}" text-anchor="end" font-size="11" fill="var(--good)">equilíbrio (5%)</text>`;
+  const step = maxM<=12?1:maxM<=24?3:maxM<=60?6:12;
+  for(let m=0;m<=maxM;m+=step) s+=`<text x="${x(m)}" y="${H-12}" text-anchor="middle" font-size="11" fill="var(--muted)">${m}</text>`;
+  s+=`<text x="${W-pr}" y="${H-0}" text-anchor="end" font-size="10.5" fill="var(--muted)">meses</text>`;
+  const path = pts.map((p,i)=>`${i?"L":"M"}${x(p.m).toFixed(1)},${y(p.f).toFixed(1)}`).join("");
+  s+=`<path d="${path} L${x(maxM)},${y(0)} L${x(0)},${y(0)}Z" fill="var(--accent)" opacity=".10"/><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>`;
+  const last=pts[pts.length-1]; s+=`<circle cx="${x(last.m)}" cy="${y(last.f)}" r="4" fill="var(--accent)"/>`;
+  return s+`</svg>`;
+}
+function chartHist(h){
+  if(h.length<2) return "";
+  const W=640,H=200,pl=60,pr=14,pt=16,pb=30, iw=W-pl-pr, ih=H-pt-pb;
+  const vals=h.map(x=>x.T), mx=Math.max(...vals), mn=Math.min(...vals)*0.9;
+  const x=i=>pl+i/(h.length-1)*iw, y=v=>pt+ih-(v-mn)/((mx-mn)||1)*ih;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução do patrimônio">`;
+  [mn,(mn+mx)/2,mx].forEach(v=>s+=`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${pl-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${br(v/1000,1)} mil</text>`);
+  h.forEach((p,i)=>s+=`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${esc(p.label)}</text>`);
+  const path=h.map((p,i)=>`${i?"L":"M"}${x(i)},${y(p.T)}`).join("");
+  s+=`<path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>`;
+  h.forEach((p,i)=>s+=`<circle cx="${x(i)}" cy="${y(p.T)}" r="${i===h.length-1?4.5:3}" fill="var(--accent)"/>`);
+  return s+`</svg>`;
+}
+
+/* ===================== DIAGNÓSTICO (saída) ===================== */
+function renderOut(){
+  D = diagnostico(S);
+  const o = $("#out");
+  $("#banner").innerHTML = S.exemplo ? `<div class="banner"><span><b>Seus ativos com valores de exemplo.</b> Os tickers são os da sua carteira; troque os valores (R$) pelos que estão na corretora e o banner some.</span><button class="btn" type="button" id="btnZerar">Limpar valores</button></div>` : "";
+  if(!D.T){ o.innerHTML = `<div class="card"><div class="empty"><b>Comece digitando seus ativos</b>Os gráficos aparecem aqui e se atualizam a cada valor.</div></div>`; return; }
+  const fp=D.foraPct, fcls = fp>0.25?"b":fp>0.10?"w":"";
+  let h = `<section class="kpis" aria-label="Resumo">
+    <div class="kpi off ${fcls}"><div class="n">${pc(fp)}</div><div class="l">fora do lugar<span class="num">R$ ${br(D.fora)}</span></div></div>
+    <div class="kpi tot"><div class="n">${D.linhas.length}</div><div class="l">ativos<span class="num">R$ ${br(D.T)}</span></div></div>
+    <div class="kpi ref"><div class="n">${D.cont.reforcar}</div><div class="l">para reforçar</div></div>
+    <div class="kpi man"><div class="n">${D.cont.manter}</div><div class="l">para manter</div></div>
+    <div class="kpi red"><div class="n">${D.cont.reduzir+D.cont.acima}</div><div class="l">para avaliar reduzir<span class="num">${D.cont.reduzir} reduzir · ${D.cont.acima} acima</span></div></div>
+    <div class="kpi inc"><div class="n">${D.comDy?"R$ "+br(D.renda):"—"}</div><div class="l">renda passiva estimada/mês<span class="num">${D.comDy?D.comDy+" de "+D.linhas.length+" com DY":"preencha o DY no ⋯"}</span></div></div>
+  </section>`;
+
+  h += `<section class="card"><h2>Onde está · onde deveria estar</h2><p class="desc">Coluna cheia é a sua carteira hoje. Coluna hachurada ao lado é o alvo do seu momento (${S.custom?"alvos personalizados":PERFIS[S.perfil].nome}).</p>
+    <div class="chartbox">${chartClasses(D)}</div><div class="legend"><span><i style="background:var(--accent)"></i>hoje</span><span><i class="h"></i>alvo do seu perfil</span></div></section>`;
+
+  h += `<section class="card"><h2>Cada ativo e o nível ideal dele</h2><p class="desc">A linha tracejada dourada é onde a posição deveria estar (alvo da classe dividido pelos ativos dela). Coluna acima da linha: sobrou. Abaixo: falta.</p>
+    <div class="scrollx chartbox">${chartAtivos(D)}</div><div class="legend"><span><i class="d"></i>nível ideal do ativo</span><span><i style="background:var(--bad)"></i>reduzir (+50% do ideal)</span><span><i style="background:var(--warn)"></i>acima (+20%)</span><span><i style="background:var(--good)"></i>reforçar (−20%)</span></div></section>`;
+
+  /* aporte */
+  if(D.A>0){
+    const mtxt = D.meses===null? "Só com aporte, a carteira não volta ao equilíbrio em 30 anos. Considere vender parte das posições mais acima." :
+      D.meses===0? "A carteira já está equilibrada: mantenha os aportes seguindo o alvo." :
+      `Sem vender nada: aportando R$ ${br(D.A)} por mês, a carteira volta ao equilíbrio em cerca de <b>${D.meses} ${D.meses===1?"mês":"meses"}</b>${D.meses>24?" (é bastante tempo; vender parte do que está muito acima encurta o caminho)":""}.`;
+    h += `<section class="card plan"><h2>Aporte deste mês: compre exatamente isso</h2><p class="desc">O plano manda o dinheiro para o que está mais abaixo do ideal, já contando com o próprio aporte. Ativos pausados ficam de fora.</p>
+      <div class="callout ${D.meses===null||D.meses>24?"w":""}">${mtxt}</div><div class="scrollx"><table><thead><tr><th>Ativo</th><th>Classe</th><th class="r">Comprar</th><th>Peso hoje → ideal</th><th class="r">Qtd. aprox.</th></tr></thead><tbody>`;
+    D.plano.forEach(p=>{
+      const c = CLASSES.find(c=>c.k===p.classe);
+      const preco = p.l && isFinite(num(p.l.qtd)) && num(p.l.qtd)>0 ? p.l.v/num(p.l.qtd) : null;
+      const q = preco? Math.floor(p.valor/preco) : null;
+      h += `<tr><td><b style="color:${COR(p.classe)}">${p.vazio?"Escolha um ativo":esc((p.ticker||"?").toUpperCase())}</b>${p.l&&p.l.ck&&p.l.ck.weak?' <span class="chip low">checklist fraco</span>':""}</td><td class="muted">${c.curto}</td>
+        <td class="r amt">R$ ${br(p.valor)}</td>
+        <td>${p.l?`<span class="num muted" style="font-size:12.5px">${pc(p.l.pct)} → ${pc(p.l.ideal)}</span>`:`<span class="muted" style="font-size:12.5px">classe vazia · alvo ${pc(D.alvo[p.classe])}</span>`}</td>
+        <td class="r num">${q===null?"<span class='muted' title='Preencha a quantidade no ⋯ para eu calcular'>—</span>":q+(q===1?" cota":" cotas")}</td></tr>`;
+    });
+    h += `</tbody></table></div></section>`;
+
+    h += `<section class="card"><div class="two"><div><h2>Para onde mandar os próximos aportes</h2><p class="desc">Resumo por classe do aporte deste mês.</p><div class="classplan">`;
+    D.porClasse.forEach(c=>{ h+=`<div class="it"><div>${c.nome}<small>${c.vazio?"comece escolhendo um ativo":"comece por: "+esc(c.comece.slice(0,4).join(", "))}</small></div><div class="amt" style="color:${COR(c.k)}">R$ ${br(c.valor)}<small>/mês</small></div></div>`; });
+    h += `</div></div><div><h2>Caminho até o equilíbrio</h2><p class="desc">Quanto da carteira fica fora do lugar, mês a mês, repetindo esse aporte.</p><div class="chartbox">${chartCurva(D)}</div></div></div></section>`;
+  }
+
+  /* o que fazer */
+  const li = l=>`<li><b style="color:${COR(l.classe)}">${esc((l.ticker||"?").toUpperCase())}</b> <span class="why">— está em ${pc(l.pct)}, ideal ${pc(l.ideal)}${l.pausado?" · pausado":""}</span></li>`;
+  h += `<section class="card"><h2>O que fazer agora</h2><p class="desc">Do mais urgente para o menos urgente em cada lado.</p><div class="two">
+    <div class="todo"><h3>Reforçar nos próximos aportes</h3>${D.reforcar.length?`<ul>${D.reforcar.map(li).join("")}</ul>`:'<p class="none">Nada abaixo do ideal.</p>'}</div>
+    <div class="todo r"><h3>Avaliar reduzir ou parar de aportar</h3>${D.reduzir.length?`<ul>${D.reduzir.map(l=>li(l).replace("</span></li>",` · ${STATUS[l.status].t.toLowerCase()}</span></li>`)).join("")}</ul>`:'<p class="none">Nada muito acima do ideal.</p>'}</div>
+  </div></section>`;
+
+  if(D.alertas.length) h += `<section class="card"><h2>Alertas</h2><div class="alerts">${D.alertas.map(a=>`<div class="alert ${a.tipo==="warn"?"":a.tipo}"><h4>${esc(a.t)}</h4><p>${esc(a.d)}</p></div>`).join("")}</div></section>`;
+
+  h += `<section class="card" id="aiCard"><h2>Análise com IA</h2><p class="desc">A IA lê a sua carteira, o diagnóstico, o checklist e os seus objetivos, e devolve um resumo com o que priorizar. Com a chave da Anthropic (em Conexões) a análise sai aqui; sem ela, copie o pedido e cole no Claude ou em outro chat.</p>
+    <div class="ai-row"><input id="aiQ" placeholder="Opcional: ex. vale começar em ações americanas agora?" value="${esc(S._aiQ||"")}"><button class="btn primary" type="button" id="btnAI">Analisar minha carteira</button><button class="btn" type="button" id="btnPrompt">Copiar pedido de análise</button></div>
+    <div class="ai-out" id="aiOut">${S._ai?S._ai:'<p class="muted">Nenhuma análise ainda.</p>'}</div></section>`;
+
+  const hist=S.historico||[];
+  h += `<section class="card hist"><h2>Histórico</h2><p class="desc">Clique em "Salvar retrato do mês" depois de atualizar os valores. Assim você acompanha patrimônio e equilíbrio ao longo do tempo.</p>
+    ${hist.length>=2?`<div class="chartbox">${chartHist(hist)}</div>`:""}
+    ${hist.length?`<div class="scrollx"><table><thead><tr><th>Data</th><th>Patrimônio</th><th>Fora do lugar</th><th>Renda/mês</th><th></th></tr></thead><tbody>${hist.slice().reverse().map((p,i)=>`<tr><td>${esc(p.label)}</td><td class="num">R$ ${br(p.T)}</td><td class="num">${pc(p.f)}</td><td class="num">${p.renda?"R$ "+br(p.renda):"—"}</td><td><button class="ic" type="button" data-delh="${hist.length-1-i}" title="Apagar retrato">×</button></td></tr>`).join("")}</tbody></table></div>`:'<p class="muted">Nenhum retrato salvo ainda.</p>'}
+  </section>`;
+  o.innerHTML = h;
+}
+function renderAll(){ renderPanel(); renderOut(); }
+
+/* ===================== EVENTOS ===================== */
+function achar(id){ return S.ativos.find(a=>a.id===id); }
+function sairExemplo(){ if(S.exemplo){ S.exemplo=false; } }
+document.addEventListener("click", e=>{
+  const t=e.target.closest("button,input[type=checkbox]"); if(!t) return;
+  if(t.dataset.perfil){ S.perfil=t.dataset.perfil; S.custom=false; renderAll(); agendar(); }
+  else if(t.id==="tgCustom"){ if(!S.custom){ const a=alvos(S); CLASSES.forEach(c=>S.alvosCustom[c.k]=Math.round(a[c.k]*100)); } S.custom=!S.custom; renderAll(); agendar(); }
+  else if(t.dataset.ativa){ S.ativas[t.dataset.ativa]=t.checked; renderAll(); agendar(); }
+  else if(t.dataset.add){ const a={id:nid(),classe:t.dataset.add,ticker:"",valor:"",dy:"",ind:{}}; S.ativos.push(a); renderPanel(); const el=document.getElementById("tk-"+a.id); el&&el.focus(); agendar(); }
+  else if(t.dataset.del){ S.ativos=S.ativos.filter(a=>a.id!==t.dataset.del); abertos.delete(t.dataset.del); renderAll(); agendar(); }
+  else if(t.dataset.det){ const id=t.dataset.det; abertos.has(id)?abertos.delete(id):abertos.add(id); renderPanel(); }
+  else if(t.dataset.pausa){ const a=achar(t.dataset.pausa); a.pausado=t.checked; renderAll(); agendar(); }
+  else if(t.dataset.delh){ S.historico.splice(+t.dataset.delh,1); renderOut(); agendar(); }
+  else if(t.id==="btnZerar"){ S.ativos.forEach(a=>{a.valor="";a.dy="";a.ind={};a.qtd="";}); S.exemplo=false; renderAll(); agendar(); }
+  else if(t.id==="btnCopy"){ copiar(); }
+  else if(t.id==="btnSnap"){ retrato(); }
+  else if(t.id==="btnAI"){ analisarIA(); }
+  else if(t.id==="btnPrompt"){ copiarPrompt(); }
+  else if(t.id==="btnQuotes"){ buscarCotacoes(); }
+  else if(t.id==="btnBackup"){ baixarBackup(); }
+  else if(t.id==="btnPrint"){ window.print(); }
+});
+document.addEventListener("input", e=>{
+  const t=e.target;
+  if(t.id==="aporte"){ S.aporte=t.value; renderOut(); agendar(); return; }
+  if(t.id==="objetivo"){ S.objetivo=t.value; agendar(); return; }
+  if(t.id==="aiQ"){ S._aiQ=t.value; return; }
+  if(t.id==="brapiToken"){ S.brapiToken=t.value; agendar(); return; }
+  if(t.id==="apiKey"){ S.apiKey=t.value; agendar(); return; }
+  if(t.dataset.alvo){ S.alvosCustom[t.dataset.alvo]=t.value; renderOut(); agendar(); return; }
+  const row=t.closest(".row");
+  if(row && t.dataset.f){ const a=achar(row.dataset.id); a[t.dataset.f]=t.dataset.f==="ticker"?t.value.toUpperCase():t.value; if(t.dataset.f==="valor") sairExemplo(); renderOut(); agendar(); return; }
+  if(t.dataset.id2){ const a=achar(t.dataset.id2); if(t.dataset.ind){ a.ind=a.ind||{}; a.ind[t.dataset.ind]=t.value; } else a[t.dataset.f]=t.value;
+    if(t.dataset.f==="qtd" && a.preco && num(a.qtd)>0){ a.valor=br(num(a.qtd)*a.preco,2); const v=document.getElementById("v-"+a.id); if(v) v.value=a.valor; S.exemplo=false; }
+    renderOut(); agendar(); }
+});
+document.addEventListener("change", e=>{
+  const t=e.target;
+  if(t.id==="restore"){ if(t.files[0]) restaurar(t.files[0]); t.value=""; return; }
+  if(t.closest(".row")||t.dataset.id2||t.dataset.alvo){
+    setTimeout(()=>{ const ae=document.activeElement, id=ae&&ae.id; const sc=$("#panel").scrollTop; renderPanel(); $("#panel").scrollTop=sc; if(id){ const el=document.getElementById(id); if(el){ el.focus(); } } },0);
+  }
+});
+
+/* ===================== COPIAR / RETRATO ===================== */
+function textoDiag(){
+  const d=D; if(!d||!d.T) return "Carteira vazia.";
+  const L=[];
+  L.push(`DIAGNÓSTICO DA CARTEIRA · ${new Date().toLocaleDateString("pt-BR")}`);
+  L.push(`Perfil: ${S.custom?"alvos personalizados":PERFIS[S.perfil].nome} · Patrimônio R$ ${br(d.T)} · ${d.linhas.length} ativos`);
+  L.push(`Fora do lugar: ${pc(d.foraPct)} (R$ ${br(d.fora)}) · Renda estimada: R$ ${br(d.renda)}/mês`);
+  L.push(""); L.push("CLASSES (hoje → alvo)");
+  d.classes.forEach(c=>L.push(`- ${c.nome}: ${pc(c.pct)} → ${pc(c.alvo)} (R$ ${br(c.v)})`));
+  L.push(""); L.push("ATIVOS");
+  d.linhas.forEach(l=>L.push(`- ${(l.ticker||"?").toUpperCase()} [${CLASSES.find(c=>c.k===l.classe).curto}]: R$ ${br(l.v)} · ${pc(l.pct)} (ideal ${pc(l.ideal)}) · ${STATUS[l.status].t}${l.ck&&l.ck.filled?` · checklist ${l.ck.pass}/${l.ck.filled}`:""}${isFinite(num(l.dy))?` · DY ${l.dy}%`:""}${l.pausado?" · pausado":""}`));
+  if(d.A>0){ L.push(""); L.push(`APORTE DE R$ ${br(d.A)}`); d.plano.forEach(p=>L.push(`- ${p.vazio?"(escolher ativo em "+CLASSES.find(c=>c.k===p.classe).curto+")":(p.ticker||"?").toUpperCase()}: R$ ${br(p.valor)}`));
+    L.push(d.meses===null?"Equilíbrio só com aporte: mais de 30 anos.":`Equilíbrio em cerca de ${d.meses} meses.`); }
+  if(d.alertas.length){ L.push(""); L.push("ALERTAS"); d.alertas.forEach(a=>L.push(`- ${a.t}`)); }
+  return L.join("\n");
+}
+async function copiar(){
+  const txt=textoDiag();
+  try{ await navigator.clipboard.writeText(txt); toast("Diagnóstico copiado"); }
+  catch(e){ const c=$("#out"); const ta=document.createElement("textarea"); ta.className="copybox"; ta.value=txt; ta.readOnly=true; c.prepend(ta); ta.select(); toast("Selecione e copie o texto acima"); }
+}
+function retrato(){
+  if(!D||!D.T){ toast("Preencha seus ativos primeiro"); return; }
+  const now=new Date(); const label=now.toLocaleDateString("pt-BR",{month:"short",year:"2-digit"}).replace(". de ","/").replace(".","");
+  S.historico=S.historico||[];
+  const snap={label, data:now.toISOString().slice(0,10), T:Math.round(D.T), f:D.foraPct, renda:Math.round(D.renda), cls:Object.fromEntries(D.classes.map(c=>[c.k,Math.round(c.v)]))};
+  const i=S.historico.findIndex(h=>h.label===label);
+  if(i>=0) S.historico[i]=snap; else S.historico.push(snap);
+  S.historico=S.historico.slice(-120);
+  renderOut(); agendar(); toast(i>=0?"Retrato do mês atualizado":"Retrato do mês salvo");
+}
+
+/* ===================== IA ===================== */
+function md(t){
+  const e=esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>");
+  const out=[]; let ul=false;
+  e.split(/\n/).forEach(line=>{
+    const l=line.trim();
+    if(/^#{1,4}\s/.test(l)){ if(ul){out.push("</ul>");ul=false;} out.push(`<h3>${l.replace(/^#+\s/,"")}</h3>`); }
+    else if(/^[-*•]\s/.test(l)){ if(!ul){out.push("<ul>");ul=true;} out.push(`<li>${l.replace(/^[-*•]\s/,"")}</li>`); }
+    else if(l){ if(ul){out.push("</ul>");ul=false;} out.push(`<p>${l}</p>`); }
+  });
+  if(ul) out.push("</ul>"); return out.join("");
+}
+function montarPrompt(){
+  const q=(S._aiQ||"").trim();
+  const prompt = `Você é um analista de investimentos brasileiro, direto e didático, ajudando um investidor pessoa física a cuidar da própria carteira. Responda em português do Brasil.
+
+OBJETIVOS DO INVESTIDOR: ${S.objetivo||"não informado"}
+
+DIAGNÓSTICO CALCULADO PELA FERRAMENTA (regras: alvo por classe conforme horizonte; ideal do ativo = alvo da classe ÷ nº de ativos dela; status reforçar <80% do ideal, manter 80–120%, acima 120–150%, reduzir >150%):
+${textoDiag()}
+
+CHECKLIST (ações: P/L 5–20, EV/EBIT 4–20, ROE>8%, ROIC>8%, Margem EBIT>5%, Liquidez corrente>1, Dív.líq/PL<0,5, Cresc. receita 5a>5%; FIIs: P/VP 0,8–1,1, DY>8%, liquidez>R$1mi/dia, vacância<10%, cotistas>50 mil):
+${D.linhas.filter(l=>l.ck&&l.ck.filled).map(l=>`- ${l.ticker}: `+l.ck.res.filter(r=>r.ok!==null).map(r=>`${r.l}=${r.v} ${r.ok?"ok":"falha"}`).join("; ")).join("\n")||"(nenhum indicador preenchido)"}
+
+${q?`PERGUNTA DO INVESTIDOR: ${q}\n`:""}
+Escreva com estes títulos (markdown com ##), curto e prático, no máximo ~350 palavras:
+## Resumo
+2–3 frases sobre o estado da carteira frente aos objetivos.
+## O que fazer neste mês
+3–5 bullets concretos, citando tickers e valores do plano de aporte quando fizer sentido.
+## Riscos e pontos de atenção
+2–4 bullets (concentração, setores repetidos, classe faltando, checklist fraco, renda fixa/reserva).
+## Para estudar
+2–3 bullets do que pesquisar antes da próxima decisão.
+${q?"## Sua pergunta\nResponda a pergunta de forma objetiva.\n":""}
+Regras: não invente cotações, indicadores ou notícias que não estão nos dados; quando precisar de um dado que não tem, diga qual buscar. Não prometa rentabilidade. Termine com uma linha em itálico lembrando que é material de estudo, não recomendação.`;
+  return prompt;
+}
+async function copiarPrompt(){
+  if(!D||!D.T){ toast("Preencha seus ativos primeiro"); return; }
+  const txt=montarPrompt();
+  try{ await navigator.clipboard.writeText(txt); toast("Pedido copiado: cole no Claude"); }
+  catch(e){ const ta=document.createElement("textarea"); ta.className="copybox"; ta.value=txt; ta.readOnly=true; $("#aiOut").replaceChildren(ta); ta.select(); toast("Selecione e copie o texto"); }
+}
+async function analisarIA(){
+  const out=$("#aiOut"), b=$("#btnAI");
+  if(!D||!D.T){ out.innerHTML='<p class="muted">Preencha seus ativos primeiro.</p>'; return; }
+  const key=(S.apiKey||"").trim();
+  if(!key){ out.innerHTML='<p class="muted">Para a análise sair aqui, cole sua chave da API da Anthropic em <b>4 · Conexões</b> (console.anthropic.com). Ou use <b>Copiar pedido de análise</b> e cole no Claude, de graça.</p>'; return; }
+  b.disabled=true; b.textContent="Analisando…"; out.innerHTML='<p class="muted">Lendo a carteira…</p>';
+  try{
+    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{
+      "content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:S.aiModel||"claude-sonnet-5-5",max_tokens:1500,messages:[{role:"user",content:montarPrompt()}]})});
+    const j=await r.json();
+    if(!r.ok) throw new Error((j&&j.error&&j.error.message)||("HTTP "+r.status));
+    const txt=(j.content||[]).filter(c=>c.type==="text").map(c=>c.text).join("\n");
+    out.innerHTML=md(txt); S._ai=md(txt); agendar();
+  }catch(e){
+    out.innerHTML='<p class="muted">Não consegui gerar a análise: '+esc(e.message||"erro de conexão")+'. Confira a chave e a internet, ou use "Copiar pedido de análise".</p>';
+  }
+  b.disabled=false; b.textContent="Analisar de novo";
+}
+
+/* ===================== INÍCIO ===================== */
+renderAll();
+iniciarDb();
+</script>
+</body>
+</html>
